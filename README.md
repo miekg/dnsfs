@@ -1,22 +1,22 @@
 # DNSFS
 
-A DNS filesystem.
+A DNS filesystem. Browse the DNS using the tools you know!
 
-* Lowercase names are labels in the DNS.
-* Names starting with an upper case are types: Txt, Soa, Srv, etc. The content is the string
-  notation of the type's data.
+Because the DNS is a not database, dnsfs can't just display directories full of content. For things
+to be queried you have to access them, either by changing into directories or listing files'
+contents.
 
-Because the DNS is a not database, not a whole lot is visible, you have to try it out.
+## Structure
 
-If a type for a name does not exist the file's contents is empty.
+Each label is a new directory - regardless if the name is delegated or not. Accessed names are
+cached.
 
-sticky bit is for DNSSEC signed names (there is an RRSIG returns in the reply).
-
-By default shows Soa and Ns files. (r--r-----) perms
-
-* ttls? no one cares ttl in access time
-
-
+* Lowercase names are *labels* from the DNS.
+* Names starting with an upper case are types: A, Txt, Soa, Srv, etc. The content is the string
+  notation of the type's data for the directory where the file lives.
+* Permission are set to 'rw-rw-rw-' for non DNSSEC names as these are effectively writeable. For
+  names that also have RRSIGs it's set to 'r--r--r--'.
+* The TTL is substracted from the current time and set as the mtime.
 
 ## Build
 
