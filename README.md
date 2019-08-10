@@ -17,6 +17,9 @@ cached.
 * Permission are set to 'rw-rw-rw-' for non DNSSEC names as these are effectively writeable. For
   names that also have RRSIGs it's set to 'r--r--r--'.
 * The TTL is substracted from the current time and set as the mtime.
+* Inode are numbered consecutively.
+* Directory size is 4096.
+* Link count is set to 1.
 
 ## Build
 

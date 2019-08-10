@@ -6,13 +6,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/miekg/dns"
 	"github.com/miekg/dnsfs/dnsutil"
 	"github.com/miekg/dnsfs/resolv"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"github.com/miekg/dns"
 )
+
+var inode uint64 = 3
 
 func New() FS {
 	return FS{r: resolv.New()}
@@ -23,17 +25,20 @@ type FS struct {
 }
 
 func (f FS) Root() (fs.Node, error) {
-	return &Dir{r: f.r, zone: "."}, nil
+	return &Dir{r: f.r, zone: ".", entries: []fuse.Dirent{}}, nil
 }
 
 type Dir struct {
-	r    resolv.R
-	zone string
+	r       resolv.R
+	zone    string
+	entries []fuse.Dirent
+	inode   uint64
 }
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 1
+	a.Inode = d.inode
 	a.Mode = os.ModeDir | 0555
+	a.Size = 4096
 	return nil
 }
 
@@ -56,6 +61,9 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 		f.dnssec = info.Dnssec
 		f.rrs = rrs
+		f.inode = inode
+		d.entries = append(d.entries, fuse.Dirent{Inode: inode, Name: name, Type: fuse.DT_Dir})
+		inode++
 
 		return f, nil
 	}
@@ -69,30 +77,30 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		return nil, fuse.ENOENT
 	}
 
+	d.inode = inode
+	d.entries = append(d.entries, fuse.Dirent{Inode: 1, Name: name, Type: fuse.DT_Dir})
+	inode++
 	return d1, nil
 }
 
-var dirDirs = []fuse.Dirent{
-	{Inode: 2, Name: "Soa", Type: fuse.DT_File},
-}
-
-func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	// type of dir
-	return dirDirs, nil
-}
+func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) { return d.entries, nil }
 
 type File struct {
 	r     resolv.R
 	zone  string
 	qtype uint16
+	inode uint64
 
 	dnssec bool
 	rrs    []dns.RR
 }
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = 2
-	a.Mode = 0444
+	a.Inode = f.inode
+	a.Mode = 0666
+	if f.dnssec {
+		a.Mode = 0444
+	}
 	for i := range f.rrs {
 		a.Size += uint64(len(f.rrs[i].String())) + 1
 	}

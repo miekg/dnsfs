@@ -38,7 +38,6 @@ func (r R) Do(qname string, qtype uint16) (rrs []dns.RR, info Info, err error) {
 		if repl.Rcode != dns.RcodeSuccess {
 			return nil, info, nil
 		}
-
 		rrs := []dns.RR{}
 		for _, a := range repl.Answer {
 			if a.Header().Rrtype == qtype {
@@ -51,6 +50,11 @@ func (r R) Do(qname string, qtype uint16) (rrs []dns.RR, info Info, err error) {
 		}
 		if !info.Exists && len(repl.Ns) > 0 { // nodata
 			info.Exists = true
+			for _, n := range repl.Ns {
+				if n.Header().Rrtype == dns.TypeRRSIG {
+					info.Dnssec = true
+				}
+			}
 		}
 
 		return rrs, info, nil
