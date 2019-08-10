@@ -54,6 +54,8 @@ a.miek.nl.	899	IN	A	176.58.119.54
 
 To quit kill `dnsfsmain` with control-C and `fusermount -u /tmp/dns` to clean up.
 
+See [this recording](https://asciinema.org/a/cphAcSWynSxuyGGiEhn9za8On).
+
 ## Also See
 
 [An older attempt using Perl](https://miek.nl/2010/december/04/a-dns-filesystem/).
