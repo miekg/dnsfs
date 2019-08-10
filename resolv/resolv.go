@@ -14,29 +14,47 @@ func New() R {
 	return R{servers: []string{"8.8.8.8:53", "8.8.4.4:53"}, c: &dns.Client{}}
 }
 
+type Info struct {
+	Rcode  int
+	Dnssec bool
+	Exists bool
+}
+
 // Do queries for qname/qtype and returns the RRs when found.
-func (r R) Do(qname string, qtype uint16) (rrs []dns.RR, rcode int, dnssec bool, err error) {
+func (r R) Do(qname string, qtype uint16) (rrs []dns.RR, info Info, err error) {
 	m := new(dns.Msg)
 	m.SetQuestion(qname, qtype)
 	m.SetEdns0(4096, true)
 	var repl *dns.Msg
 
+	info = Info{dns.RcodeServerFailure, false, false}
 	for _, s := range r.servers {
 		repl, _, err = r.c.Exchange(m, s)
 		if err != nil {
 			continue
 		}
+
+		info.Rcode = repl.Rcode
+		if repl.Rcode != dns.RcodeSuccess {
+			return nil, info, nil
+		}
+
 		rrs := []dns.RR{}
 		for _, a := range repl.Answer {
 			if a.Header().Rrtype == qtype {
 				rrs = append(rrs, a)
 			}
 			if a.Header().Rrtype == dns.TypeRRSIG {
-				dnssec = true
+				info.Dnssec = true
 			}
+			info.Exists = true
 		}
-		return rrs, repl.Rcode, dnssec, nil
+		if !info.Exists && len(repl.Ns) > 0 { // nodata
+			info.Exists = true
+		}
+
+		return rrs, info, nil
 	}
 
-	return nil, dns.RcodeServerFailure, false, err
+	return nil, info, err
 }

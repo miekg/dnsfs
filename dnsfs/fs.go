@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/miekg/dns"
+	"github.com/miekg/dnsfs/dnsutil"
 	"github.com/miekg/dnsfs/resolv"
 
 	"bazil.org/fuse"
@@ -22,12 +23,12 @@ type FS struct {
 }
 
 func (f FS) Root() (fs.Node, error) {
-	return &Dir{r: f.r, name: "."}, nil
+	return &Dir{r: f.r, zone: "."}, nil
 }
 
 type Dir struct {
 	r    resolv.R
-	name string
+	zone string
 }
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -37,34 +38,38 @@ func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	// if it starts with an upper case it's a request for a type for d.Name, which are files
+	// If it starts with an upper case it's a request for a type for d.Name, which are files
 	if strings.ToUpper(name[:1]) == string(name[0]) {
 		qtype, ok := dns.StringToType[strings.ToUpper(name)]
 		if !ok {
 			return nil, fuse.ENOENT
 		}
 
-		f := &File{r: d.r, qtype: qtype, zone: d.name}
-		rrs, rcode, dnssec, err := f.r.Do(f.zone, f.qtype)
+		f := &File{r: d.r, qtype: qtype, zone: d.zone}
+		rrs, info, err := f.r.Do(f.zone, f.qtype)
 		if err != nil {
 			return nil, err
 		}
-		if rcode != dns.RcodeSuccess {
-			return nil, fuse.ENOENT
-		}
-		if len(rrs) == 0 { // nodata
+		if !info.Exists {
 			return nil, fuse.ENOENT
 		}
 
-		f.dnssec = dnssec
+		f.dnssec = info.Dnssec
 		f.rrs = rrs
 
 		return f, nil
 	}
+	// Directories
+	d1 := &Dir{r: d.r, zone: dnsutil.Join(dns.Fqdn(name), d.zone)}
+	_, info, err := d1.r.Do(d1.zone, dns.TypeSOA)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Exists {
+		return nil, fuse.ENOENT
+	}
 
-	// here we have directories
-
-	return nil, fuse.ENOENT
+	return d1, nil
 }
 
 var dirDirs = []fuse.Dirent{
@@ -72,6 +77,7 @@ var dirDirs = []fuse.Dirent{
 }
 
 func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+	// type of dir
 	return dirDirs, nil
 }
 
@@ -85,10 +91,6 @@ type File struct {
 }
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
-	if err := f.Do(ctx); err != nil {
-		return err
-	}
-
 	a.Inode = 2
 	a.Mode = 0444
 	for i := range f.rrs {
@@ -111,11 +113,11 @@ func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
 
 func (f *File) Do(ctx context.Context) error {
 	if len(f.rrs) == 0 {
-		rrs, _, dnssec, err := f.r.Do(f.zone, f.qtype)
+		rrs, info, err := f.r.Do(f.zone, f.qtype)
 		if err != nil {
 			return err
 		}
-		f.dnssec = dnssec
+		f.dnssec = info.Dnssec
 		f.rrs = rrs
 	}
 	// Check TTL and relookup
