@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"os/user"
+	"path"
 	"strconv"
 	"strings"
 
@@ -26,6 +27,25 @@ type FS struct {
 
 func (f FS) Root() (fs.Node, error) {
 	return &Dir{r: f.r, zone: ".", entries: make(map[string]fuse.Dirent)}, nil
+}
+
+type Symlink struct {
+	target string
+}
+
+func (s *Symlink) Attr(ctx context.Context, a *fuse.Attr) error {
+	a.Inode = 3
+	a.Mode = os.ModeSymlink | 0666
+	a.Size = uint64(len(s.target))
+	if user, err := user.Current(); err == nil {
+		a.Uid = id(user.Uid)
+		a.Gid = id(user.Gid)
+	}
+	return nil
+}
+
+func (s *Symlink) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (string, error) {
+	return s.target, nil
 }
 
 type Dir struct {
@@ -54,7 +74,7 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		}
 
 		f := &File{r: d.r, qtype: qtype, zone: d.zone}
-		rrs, info, err := f.r.Do(f.zone, f.qtype, fuse.DT_File)
+		rrs, info, err := d.r.Do(f.zone, f.qtype, fuse.DT_File)
 		if err != nil {
 			return nil, err
 		}
@@ -69,13 +89,24 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		return f, nil
 	}
 	// Directories
+
 	d1 := &Dir{r: d.r, zone: dnsutil.Join(dns.Fqdn(name), d.zone), entries: map[string]fuse.Dirent{}}
-	_, info, err := d1.r.Do(d1.zone, dns.TypeSOA, fuse.DT_Dir)
+	_, info, err := d1.r.Do(d1.zone, dns.TypeCNAME, fuse.DT_Dir)
 	if err != nil {
 		return nil, err
 	}
 	if !info.Exists {
 		return nil, fuse.ENOENT
+	}
+	if info.Target != "" { // it was a symlink
+		depth := strings.Count(d.zone, ".")
+		pref := ""
+		for i := 0; i < depth; i++ {
+			pref += "../"
+		}
+		s := &Symlink{target: path.Join(pref, info.Target)}
+		d.entries[name] = fuse.Dirent{Inode: 3, Name: name, Type: fuse.DT_Link}
+		return s, nil
 	}
 
 	d.entries[name] = fuse.Dirent{Inode: 1, Name: name, Type: fuse.DT_Dir}

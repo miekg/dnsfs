@@ -1,6 +1,6 @@
 # DNSFS
 
-A DNS filesystem. Browse the DNS using the tools you know!
+A read-only DNS filesystem. Browse the DNS using the tools you know!
 
 Because the DNS is a not database, dnsfs can't just display directories full of content. To help a
 little bit it will query some set of qtypes to see if they exist. No subdomain (directories) will be
@@ -8,6 +8,8 @@ listed by default. The types queried by default are: SOA, NS, MX, DNSKEY, TXT, A
 
 For subdomains and other types to exist they have to be queried, to see if they are defined in the
 DNS.
+
+CNAMEs are detected and made into symlinks.
 
 ## Structure
 

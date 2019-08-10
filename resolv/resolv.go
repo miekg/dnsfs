@@ -1,6 +1,9 @@
 package resolv
 
 import (
+	"path"
+	"strings"
+
 	"bazil.org/fuse"
 	"github.com/miekg/dns"
 )
@@ -19,6 +22,7 @@ type Info struct {
 	Rcode  int
 	Dnssec bool
 	Exists bool
+	Target string // target as path.
 }
 
 // Do queries for qname/qtype and returns the RRs when found.
@@ -28,7 +32,7 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 	m.SetEdns0(4096, true)
 	var repl *dns.Msg
 
-	info = Info{dns.RcodeServerFailure, false, false}
+	info = Info{Rcode: dns.RcodeServerFailure}
 	for _, s := range r.servers {
 		repl, _, err = r.c.Exchange(m, s)
 		if err != nil {
@@ -42,6 +46,13 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 		rrs := []dns.RR{}
 		for _, a := range repl.Answer {
 			a.Header().Ttl = 3600
+
+			// CNAME handling, only for dirs
+			if a.Header().Rrtype == dns.TypeCNAME && typ == fuse.DT_Dir {
+				info.Target = dnsToTarget(a.(*dns.CNAME).Target)
+				info.Exists = true
+				return []dns.RR{a}, info, nil
+			}
 
 			if qtype == dns.TypeANY {
 				rrs = append(rrs, a)
@@ -69,4 +80,12 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 	}
 
 	return nil, info, err
+}
+
+func dnsToTarget(s string) string {
+	l := strings.Split(s, ".")
+	for left, right := 0, len(l)-1; left < right; left, right = left+1, right-1 {
+		l[left], l[right] = l[right], l[left]
+	}
+	return path.Join(l...)
 }

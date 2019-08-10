@@ -27,7 +27,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	c, err := fuse.Mount(flag.Arg(0), fuse.FSName("dns"), fuse.Subtype("dnsfs"), fuse.LocalVolume(), fuse.VolumeName("v0"))
+	c, err := fuse.Mount(flag.Arg(0), fuse.FSName("dns"), fuse.Subtype("dnsfs"), fuse.LocalVolume(), fuse.ReadOnly())
 	if err != nil {
 		log.Fatal(err)
 	}
