@@ -19,7 +19,7 @@ cached.
   notation of the type's data for the directory where the file lives.
 * Permission are set to 'rw-rw-rw-' for non DNSSEC names as these are effectively writeable. For
   names that also have RRSIGs it's set to 'r--r--r--'.
-* The TTL is not used.
+* The TTL is not used and set to 3600 for all records.
 * Inode are fixed: 1 for directories, 2 for files.
 * Directory size is 4096.
 * Link count is set to 1.

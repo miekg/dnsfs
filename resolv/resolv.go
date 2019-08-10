@@ -41,9 +41,14 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 		}
 		rrs := []dns.RR{}
 		for _, a := range repl.Answer {
-			if a.Header().Rrtype == qtype {
+			a.Header().Ttl = 3600
+
+			if qtype == dns.TypeANY {
+				rrs = append(rrs, a)
+			} else if a.Header().Rrtype == qtype {
 				rrs = append(rrs, a)
 			}
+
 			if a.Header().Rrtype == dns.TypeRRSIG {
 				info.Dnssec = true
 			}
@@ -54,6 +59,7 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 			for _, n := range repl.Ns {
 				if n.Header().Rrtype == dns.TypeRRSIG {
 					info.Dnssec = true
+					break
 				}
 			}
 		}
