@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/user"
+	"strconv"
 	"strings"
 
 	"github.com/miekg/dnsfs/dnsutil"
@@ -13,8 +15,6 @@ import (
 	"bazil.org/fuse/fs"
 	"github.com/miekg/dns"
 )
-
-var inode uint64 = 3
 
 func New() FS {
 	return FS{r: resolv.New()}
@@ -32,13 +32,16 @@ type Dir struct {
 	r       resolv.R
 	zone    string
 	entries []fuse.Dirent
-	inode   uint64
 }
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = d.inode
+	a.Inode = 1
 	a.Mode = os.ModeDir | 0555
 	a.Size = 4096
+	if user, err := user.Current(); err == nil {
+		a.Uid = id(user.Uid)
+		a.Gid = id(user.Gid)
+	}
 	return nil
 }
 
@@ -61,9 +64,7 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 		f.dnssec = info.Dnssec
 		f.rrs = rrs
-		f.inode = inode
-		d.entries = append(d.entries, fuse.Dirent{Inode: inode, Name: name, Type: fuse.DT_Dir})
-		inode++
+		d.entries = append(d.entries, fuse.Dirent{Inode: 2, Name: name, Type: fuse.DT_Dir})
 
 		return f, nil
 	}
@@ -77,9 +78,7 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		return nil, fuse.ENOENT
 	}
 
-	d.inode = inode
 	d.entries = append(d.entries, fuse.Dirent{Inode: 1, Name: name, Type: fuse.DT_Dir})
-	inode++
 	return d1, nil
 }
 
@@ -89,15 +88,18 @@ type File struct {
 	r     resolv.R
 	zone  string
 	qtype uint16
-	inode uint64
 
 	dnssec bool
 	rrs    []dns.RR
 }
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Inode = f.inode
+	a.Inode = 2
 	a.Mode = 0666
+	if user, err := user.Current(); err == nil {
+		a.Uid = id(user.Uid)
+		a.Gid = id(user.Gid)
+	}
 	if f.dnssec {
 		a.Mode = 0444
 	}
@@ -128,6 +130,11 @@ func (f *File) Do(ctx context.Context) error {
 		f.dnssec = info.Dnssec
 		f.rrs = rrs
 	}
-	// Check TTL and relookup
+	// Check TTL and relookup?
 	return nil
+}
+
+func id(s string) uint32 {
+	x, _ := strconv.Atoi(s)
+	return uint32(x)
 }

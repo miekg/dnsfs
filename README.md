@@ -23,7 +23,36 @@ cached.
 
 ## Build
 
-Build with: `go build -o dnsfsmain`.
+Build with: `go build -o dnsfsmain`. Or use the Makefile and just `make`.
+
+## Usage
+
+Start the dnsfs browser:
+
+~~~ sh
+% mkdir /tmp/dns
+% ./dnsfsmain /tmp/dns
+~~~
+
+And then in a different terminal:
+
+~~~ sh
+% cd /tmp/dns
+% ls
+% cat Soa
+.	63841	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2019081000 1800 900 604800 86400
+% ls
+Soa
+% cd blaat
+cd: no such file or directory: blaat
+% cd nl
+% cd miek
+% cd a
+% cat A
+a.miek.nl.	899	IN	A	176.58.119.54
+~~~
+
+To quit kill `dnsfsmain` with control-C and `fusermount -u /tmp/dns` to clean up.
 
 ## Also See
 
