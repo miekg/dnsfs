@@ -25,13 +25,13 @@ type FS struct {
 }
 
 func (f FS) Root() (fs.Node, error) {
-	return &Dir{r: f.r, zone: ".", entries: []fuse.Dirent{}}, nil
+	return &Dir{r: f.r, zone: ".", entries: make(map[string]fuse.Dirent)}, nil
 }
 
 type Dir struct {
 	r       resolv.R
 	zone    string
-	entries []fuse.Dirent
+	entries map[string]fuse.Dirent
 }
 
 func (d *Dir) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -54,7 +54,7 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		}
 
 		f := &File{r: d.r, qtype: qtype, zone: d.zone}
-		rrs, info, err := f.r.Do(f.zone, f.qtype)
+		rrs, info, err := f.r.Do(f.zone, f.qtype, fuse.DT_File)
 		if err != nil {
 			return nil, err
 		}
@@ -64,13 +64,13 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 		f.dnssec = info.Dnssec
 		f.rrs = rrs
-		d.entries = append(d.entries, fuse.Dirent{Inode: 2, Name: name, Type: fuse.DT_Dir})
+		d.entries[name] = fuse.Dirent{Inode: 2, Name: name, Type: fuse.DT_File}
 
 		return f, nil
 	}
 	// Directories
-	d1 := &Dir{r: d.r, zone: dnsutil.Join(dns.Fqdn(name), d.zone)}
-	_, info, err := d1.r.Do(d1.zone, dns.TypeSOA)
+	d1 := &Dir{r: d.r, zone: dnsutil.Join(dns.Fqdn(name), d.zone), entries: map[string]fuse.Dirent{}}
+	_, info, err := d1.r.Do(d1.zone, dns.TypeSOA, fuse.DT_Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -78,11 +78,44 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		return nil, fuse.ENOENT
 	}
 
-	d.entries = append(d.entries, fuse.Dirent{Inode: 1, Name: name, Type: fuse.DT_Dir})
+	d.entries[name] = fuse.Dirent{Inode: 1, Name: name, Type: fuse.DT_Dir}
 	return d1, nil
 }
 
-func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) { return d.entries, nil }
+func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+	if len(d.entries) > 0 {
+		return mapToSlice(d.entries), nil
+	}
+
+	for _, qtype := range []uint16{dns.TypeSOA, dns.TypeNS, dns.TypeMX, dns.TypeDNSKEY, dns.TypeTXT, dns.TypeA, dns.TypeAAAA} {
+		f := &File{r: d.r, qtype: qtype, zone: d.zone}
+		_, info, err := f.r.Do(f.zone, f.qtype, fuse.DT_File)
+		if err != nil {
+			continue
+		}
+		if !info.Exists {
+			continue
+		}
+		switch qtype {
+		case dns.TypeSOA:
+			d.entries["Soa"] = fuse.Dirent{Inode: 2, Name: "Soa", Type: fuse.DT_File}
+		case dns.TypeNS:
+			d.entries["Ns"] = fuse.Dirent{Inode: 2, Name: "Ns", Type: fuse.DT_File}
+		case dns.TypeMX:
+			d.entries["Mx"] = fuse.Dirent{Inode: 2, Name: "Mx", Type: fuse.DT_File}
+		case dns.TypeDNSKEY:
+			d.entries["Dnskey"] = fuse.Dirent{Inode: 2, Name: "Dnskey", Type: fuse.DT_File}
+		case dns.TypeTXT:
+			d.entries["Txt"] = fuse.Dirent{Inode: 2, Name: "Txt", Type: fuse.DT_File}
+		case dns.TypeA:
+			d.entries["A"] = fuse.Dirent{Inode: 2, Name: "A", Type: fuse.DT_File}
+		case dns.TypeAAAA:
+			d.entries["Aaaa"] = fuse.Dirent{Inode: 2, Name: "Aaaa", Type: fuse.DT_File}
+		}
+	}
+
+	return mapToSlice(d.entries), nil
+}
 
 type File struct {
 	r     resolv.R
@@ -123,7 +156,7 @@ func (f *File) ReadAll(ctx context.Context) ([]byte, error) {
 
 func (f *File) Do(ctx context.Context) error {
 	if len(f.rrs) == 0 {
-		rrs, info, err := f.r.Do(f.zone, f.qtype)
+		rrs, info, err := f.r.Do(f.zone, f.qtype, fuse.DT_File)
 		if err != nil {
 			return err
 		}
@@ -137,4 +170,14 @@ func (f *File) Do(ctx context.Context) error {
 func id(s string) uint32 {
 	x, _ := strconv.Atoi(s)
 	return uint32(x)
+}
+
+func mapToSlice(m map[string]fuse.Dirent) []fuse.Dirent {
+	df := make([]fuse.Dirent, len(m))
+	i := 0
+	for _, dir := range m {
+		df[i] = dir
+		i++
+	}
+	return df
 }

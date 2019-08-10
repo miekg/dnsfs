@@ -1,6 +1,7 @@
 package resolv
 
 import (
+	"bazil.org/fuse"
 	"github.com/miekg/dns"
 )
 
@@ -21,7 +22,7 @@ type Info struct {
 }
 
 // Do queries for qname/qtype and returns the RRs when found.
-func (r R) Do(qname string, qtype uint16) (rrs []dns.RR, info Info, err error) {
+func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, info Info, err error) {
 	m := new(dns.Msg)
 	m.SetQuestion(qname, qtype)
 	m.SetEdns0(4096, true)
@@ -48,7 +49,7 @@ func (r R) Do(qname string, qtype uint16) (rrs []dns.RR, info Info, err error) {
 			}
 			info.Exists = true
 		}
-		if !info.Exists && len(repl.Ns) > 0 { // nodata
+		if !info.Exists && len(repl.Ns) > 0 && typ == fuse.DT_Dir { // nodata, but only for dirs
 			info.Exists = true
 			for _, n := range repl.Ns {
 				if n.Header().Rrtype == dns.TypeRRSIG {

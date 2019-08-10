@@ -2,9 +2,12 @@
 
 A DNS filesystem. Browse the DNS using the tools you know!
 
-Because the DNS is a not database, dnsfs can't just display directories full of content. For things
-to be queried you have to access them, either by changing into directories or listing files'
-contents.
+Because the DNS is a not database, dnsfs can't just display directories full of content. To help a
+little bit it will query some set of qtypes to see if they exist. No subdomain (directories) will be
+listed by default. The types queried by default are: SOA, NS, MX, DNSKEY, TXT, A and AAAA.
+
+For subdomains and other types to exist they have to be queried, to see if they are defined in the
+DNS.
 
 ## Structure
 
@@ -39,6 +42,7 @@ And then in a different terminal:
 ~~~ sh
 % cd /tmp/dns
 % ls
+Dnskey  Ns  Soa
 % cat Soa
 .	63841	IN	SOA	a.root-servers.net. nstld.verisign-grs.com. 2019081000 1800 900 604800 86400
 % ls
