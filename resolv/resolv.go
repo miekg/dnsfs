@@ -45,7 +45,8 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 
 			if qtype == dns.TypeANY {
 				rrs = append(rrs, a)
-			} else if a.Header().Rrtype == qtype {
+			}
+			if a.Header().Rrtype == qtype {
 				rrs = append(rrs, a)
 			}
 
