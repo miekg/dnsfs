@@ -8,6 +8,12 @@ import (
 	"github.com/miekg/dns"
 )
 
+// The Resolver interface ...
+type Resolver interface {
+	Do(string, uint16, fuse.DirentType) ([]dns.RR, Info, error)
+}
+
+// R implements the Resolver interface and queries the DNS.
 type R struct {
 	servers []string
 	c       *dns.Client
@@ -18,6 +24,7 @@ func New() R {
 	return R{servers: []string{"8.8.8.8:53", "8.8.4.4:53"}, c: &dns.Client{}}
 }
 
+// Info contains some metadata on the queries executed.
 type Info struct {
 	Rcode  int
 	Dnssec bool
@@ -47,7 +54,7 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 		for _, a := range repl.Answer {
 			a.Header().Ttl = 3600
 
-			// CNAME handling, only for dirs
+			// CNAME handling, only for directory query.
 			if a.Header().Rrtype == dns.TypeCNAME && typ == fuse.DT_Dir {
 				info.Target = dnsToTarget(a.(*dns.CNAME).Target)
 				info.Exists = true
@@ -82,6 +89,7 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 	return nil, info, err
 }
 
+// dnsToTarget converts a DNS name into a path.
 func dnsToTarget(s string) string {
 	l := strings.Split(s, ".")
 	for left, right := 0, len(l)-1; left < right; left, right = left+1, right-1 {

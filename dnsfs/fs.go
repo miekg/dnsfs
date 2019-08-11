@@ -17,8 +17,8 @@ import (
 	"github.com/miekg/dns"
 )
 
-func New() FS {
-	return FS{r: resolv.New()}
+func New(r resolv.Resolver) FS {
+	return FS{r: r}
 }
 
 type FS struct {
@@ -72,6 +72,10 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		if !ok {
 			return nil, fuse.ENOENT
 		}
+		// Start with uppercase, the rest must be lower case
+		if strings.ToLower(name[1:]) != name[1:] {
+			return nil, fuse.ENOENT
+		}
 
 		f := &File{r: d.r, qtype: qtype, zone: d.zone}
 		rrs, info, err := d.r.Do(f.zone, f.qtype, fuse.DT_File)
@@ -89,6 +93,7 @@ func (d *Dir) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		return f, nil
 	}
 	// Directories
+	name = strings.ToLower(name)
 
 	d1 := &Dir{r: d.r, zone: dnsutil.Join(dns.Fqdn(name), d.zone), entries: map[string]fuse.Dirent{}}
 	_, info, err := d1.r.Do(d1.zone, dns.TypeCNAME, fuse.DT_Dir)

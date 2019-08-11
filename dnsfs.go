@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/miekg/dnsfs/dnsfs"
+	"github.com/miekg/dnsfs/resolv"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -33,7 +34,8 @@ func main() {
 	}
 	defer c.Close()
 
-	dfs := dnsfs.New()
+	log.Printf("Mounted dnsfs on: %s", flag.Arg(0))
+	dfs := dnsfs.New(resolv.New())
 	err = fs.Serve(c, dfs)
 	if err != nil {
 		log.Fatal(err)
