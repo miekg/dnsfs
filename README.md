@@ -3,7 +3,7 @@
 A read-only DNS filesystem. Browse the DNS using the tools you know!
 
 Listing an empty directory will make DNSFS query a default set of qtypes. The types queried by
-default are: SOA, NS, MX, DNSKEY, TXT, A and AAAA.
+default are: SOA, NS, MX, DNSKEY, DS, TXT, A and AAAA.
 
 Because the DNS is a not database, no subdomains are listed by default. For subdomains and other
 types to exist they have to be queried. I.e. you have to change directory into a subdomain to get it

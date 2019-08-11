@@ -17,18 +17,22 @@ import (
 	"github.com/miekg/dns"
 )
 
+// New returns a new FS.
 func New(r resolv.Resolver) FS {
 	return FS{r: r}
 }
 
+// FS implements a FUSE filesystem.
 type FS struct {
 	r resolv.Resolver
 }
 
+// Root implements the fuse interface.
 func (f FS) Root() (fs.Node, error) {
 	return &Dir{r: f.r, zone: ".", entries: make(map[string]fuse.Dirent)}, nil
 }
 
+// Symlink represents a CNAME record.
 type Symlink struct {
 	target string
 }
@@ -48,6 +52,7 @@ func (s *Symlink) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (stri
 	return s.target, nil
 }
 
+// Dir represents a DNS label.
 type Dir struct {
 	r       resolv.Resolver
 	zone    string
@@ -123,7 +128,7 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		return mapToSlice(d.entries), nil
 	}
 
-	for _, qtype := range []uint16{dns.TypeSOA, dns.TypeNS, dns.TypeMX, dns.TypeDNSKEY, dns.TypeTXT, dns.TypeA, dns.TypeAAAA} {
+	for _, qtype := range []uint16{dns.TypeSOA, dns.TypeNS, dns.TypeMX, dns.TypeDNSKEY, dns.TypeDS, dns.TypeTXT, dns.TypeA, dns.TypeAAAA} {
 		f := &File{r: d.r, qtype: qtype, zone: d.zone}
 		_, info, err := f.r.Do(f.zone, f.qtype, fuse.DT_File)
 		if err != nil {
@@ -141,6 +146,8 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			d.entries["Mx"] = fuse.Dirent{Inode: 2, Name: "Mx", Type: fuse.DT_File}
 		case dns.TypeDNSKEY:
 			d.entries["Dnskey"] = fuse.Dirent{Inode: 2, Name: "Dnskey", Type: fuse.DT_File}
+		case dns.TypeDS:
+			d.entries["Ds"] = fuse.Dirent{Inode: 2, Name: "Ds", Type: fuse.DT_File}
 		case dns.TypeTXT:
 			d.entries["Txt"] = fuse.Dirent{Inode: 2, Name: "Txt", Type: fuse.DT_File}
 		case dns.TypeA:
@@ -153,6 +160,7 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	return mapToSlice(d.entries), nil
 }
 
+// File represents a DNS type.
 type File struct {
 	r     resolv.Resolver
 	zone  string

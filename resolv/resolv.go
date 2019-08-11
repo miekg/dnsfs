@@ -1,8 +1,7 @@
 package resolv
 
 import (
-	"path"
-	"strings"
+	"github.com/miekg/dnsfs/dnsutil"
 
 	"bazil.org/fuse"
 	"github.com/miekg/dns"
@@ -56,7 +55,7 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 
 			// CNAME handling, only for directory query.
 			if a.Header().Rrtype == dns.TypeCNAME && typ == fuse.DT_Dir {
-				info.Target = dnsToTarget(a.(*dns.CNAME).Target)
+				info.Target = dnsutil.ToPath(a.(*dns.CNAME).Target)
 				info.Exists = true
 				return []dns.RR{a}, info, nil
 			}
@@ -89,18 +88,10 @@ func (r R) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, in
 	return nil, info, err
 }
 
-// dnsToTarget converts a DNS name into a path.
-func dnsToTarget(s string) string {
-	l := strings.Split(s, ".")
-	for left, right := 0, len(l)-1; left < right; left, right = left+1, right-1 {
-		l[left], l[right] = l[right], l[left]
-	}
-	return path.Join(l...)
-}
-
 // T implements the Resolver interface and is used for testing.
 type T struct{}
 
+// Do returns data for testing purposes.
 func (t T) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, info Info, err error) {
 	return nil, Info{}, nil
 }
