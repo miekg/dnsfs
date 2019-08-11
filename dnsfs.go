@@ -35,6 +35,7 @@ func main() {
 	defer c.Close()
 
 	log.Printf("Mounted dnsfs on: %s", flag.Arg(0))
+	defer log.Printf("Unmounted dnsfs from: %s", flag.Arg(0))
 	dfs := dnsfs.New(resolv.New())
 	err = fs.Serve(c, dfs)
 	if err != nil {
@@ -43,6 +44,9 @@ func main() {
 
 	<-c.Ready
 	if err := c.MountError; err != nil {
+		log.Fatal(err)
+	}
+	if err := fuse.Unmount(flag.Arg(0)); err != nil {
 		log.Fatal(err)
 	}
 }
