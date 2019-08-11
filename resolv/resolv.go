@@ -97,3 +97,10 @@ func dnsToTarget(s string) string {
 	}
 	return path.Join(l...)
 }
+
+// T implements the Resolver interface and is used for testing.
+type T struct{}
+
+func (t T) Do(qname string, qtype uint16, typ fuse.DirentType) (rrs []dns.RR, info Info, err error) {
+	return nil, Info{}, nil
+}

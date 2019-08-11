@@ -22,7 +22,7 @@ func New(r resolv.Resolver) FS {
 }
 
 type FS struct {
-	r resolv.R
+	r resolv.Resolver
 }
 
 func (f FS) Root() (fs.Node, error) {
@@ -49,7 +49,7 @@ func (s *Symlink) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (stri
 }
 
 type Dir struct {
-	r       resolv.R
+	r       resolv.Resolver
 	zone    string
 	entries map[string]fuse.Dirent
 }
@@ -154,7 +154,7 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 type File struct {
-	r     resolv.R
+	r     resolv.Resolver
 	zone  string
 	qtype uint16
 

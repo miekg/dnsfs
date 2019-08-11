@@ -68,3 +68,7 @@ See [this recording](https://asciinema.org/a/cphAcSWynSxuyGGiEhn9za8On).
 ## Also See
 
 [An older attempt using Perl](https://miek.nl/2010/december/04/a-dns-filesystem/).
+
+## Bugs
+
+No useful application for DNSFS exists. There are no tests.
